@@ -1,5 +1,5 @@
 /****************************************************************************
- * arch/arm/src/stm32wl5/stm32wl5.h
+ * boards/arm/stmwl5/nucleo-wl55jc/include/esp32_ssd1680.h
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,34 +18,47 @@
  *
  ****************************************************************************/
 
-#ifndef __ARCH_ARM_SRC_STM32WL5_STM32WL5_H
-#define __ARCH_ARM_SRC_STM32WL5_STM32WL5_H
+#ifndef __BOARDS_ARM_STMWL5_NUCLEO_WL55JC_INCLUDE_STM32WL5_SSD1680_H
+#define __BOARDS_ARM_STMWL5_NUCLEO_WL55JC_INCLUDE_STM32WL5_SSD1680_H
 
 /****************************************************************************
  * Included Files
  ****************************************************************************/
 
 #include <nuttx/config.h>
-#include <sys/types.h>
-#include <stdint.h>
-#include <stdbool.h>
-
-#include "arm_internal.h"
-
-/* Peripherals **************************************************************/
-
-#include "chip.h"
-#include "stm32wl5_flash.h"
-#include "stm32wl5_gpio.h"
-#include "stm32wl5_lowputc.h"
-#include "stm32wl5_pwr.h"
-#include "stm32wl5_rcc.h"
-#include "stm32wl5_spi.h"
-#include "stm32wl5_tim.h"
-#include "stm32wl5_uart.h"
 
 /****************************************************************************
- * Pre-processor Definitions
+ * Public Data
  ****************************************************************************/
 
-#endif /* __ARCH_ARM_SRC_STM32WL5_STM32WL5_H */
+#ifdef __cplusplus
+#define EXTERN extern "C"
+extern "C"
+{
+#else
+#define EXTERN extern
+#endif
+
+/****************************************************************************
+ * Public Function Prototypes
+ ****************************************************************************/
+
+/****************************************************************************
+ * Name: board_ssd1680_getdev
+ *
+ * Description:
+ *   Get the SSD1680 device driver instance
+ *
+ * Returned Value:
+ *   Pointer to the instance
+ *
+ ****************************************************************************/
+
+struct lcd_dev_s *board_ssd1680_getdev(void);
+
+#undef EXTERN
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __BOARDS_ARM_STMWL5_NUCLEO_WL55JC_INCLUDE_STM32WL5_SSD1680_H */
