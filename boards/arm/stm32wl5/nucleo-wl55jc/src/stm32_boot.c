@@ -81,6 +81,10 @@ void stm32wl5_board_initialize(void)
 #ifdef CONFIG_BOARD_LATE_INITIALIZE
 void board_late_initialize(void)
 {
+
+#if defined(CONFIG_STM32WL5_SPI1) || defined(CONFIG_STM32WL5_SPI2S2)
+  stm32wl5_board_initialize();
+#endif
   /* Perform NSH initialization here instead of from the NSH.  This
    * alternative NSH initialization is necessary when NSH is ran in
    * user-space but the initialization function must run in kernel space.

@@ -20,10 +20,20 @@
 
 include $(TOPDIR)/Make.defs
 
-CSRCS = stm32_boot.c stm32_leds.c
+CSRCS = stm32_boot.c stm32_leds.c stm32_spi.c
 
 ifeq ($(CONFIG_BOARDCTL),y)
 CSRCS += stm32_appinit.c
+endif
+
+ifeq ($(CONFIG_SPI_DRIVER),y)
+  CSRCS += stm32_spi.c
+endif
+
+ifeq ($(CONFIG_VIDEO_FB),y)
+ifeq ($(CONFIG_LCD_SSD1680),y)
+  CSRCS += stm32_ssd1680.c
+endif
 endif
 
 include $(TOPDIR)/boards/Board.mk
