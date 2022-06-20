@@ -41,6 +41,7 @@
 #include <nuttx/net/arp.h>
 #include <nuttx/net/netdev.h>
 #include <nuttx/wireless/wireless.h>
+#include <nuttx/wireless/ieee80211/bcmf_board.h>
 
 #ifdef CONFIG_NET_PKT
 #  include <nuttx/net/pkt.h>
@@ -50,6 +51,7 @@
 #include "bcmf_cdc.h"
 #include "bcmf_bdc.h"
 #include "bcmf_ioctl.h"
+#include "bcmf_netdev.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -66,13 +68,17 @@
 /* The low priority work queue is preferred.  If it is not enabled, LPWORK
  * will be the same as HPWORK.
  *
- * NOTE:  However, the network should NEVER run on the high priority work
- * queue!  That queue is intended only to service short back end interrupt
- * processing that never suspends.  Suspending the high priority work queue
- * may bring the system to its knees!
+ * Use high priority queue if the bcmf daemon task has a higher priority
+ * than HPWORK, which will bring better performance especially on devices
+ * that focus on real-time of network.
  */
 
-#define BCMFWORK LPWORK
+#if defined(CONFIG_SCHED_HPWORK) && \
+    (CONFIG_IEEE80211_BROADCOM_SCHED_PRIORITY >= CONFIG_SCHED_HPWORKPRIORITY)
+# define BCMFWORK HPWORK
+#else
+# define BCMFWORK LPWORK
+#endif
 
 /* CONFIG_IEEE80211_BROADCOM_NINTERFACES determines the number of physical
  * interfaces that will be supported.
@@ -81,10 +87,6 @@
 #ifndef CONFIG_IEEE80211_BROADCOM_NINTERFACES
 # define CONFIG_IEEE80211_BROADCOM_NINTERFACES 1
 #endif
-
-/* TX timeout = 1 minute */
-
-#define BCMF_TXTIMEOUT (60*CLK_TCK)
 
 /* This is a helper pointer for accessing the contents of Ethernet header */
 
@@ -107,7 +109,6 @@ static void bcmf_rxpoll_work(FAR void *arg);
 static int  bcmf_ifup(FAR struct net_driver_s *dev);
 static int  bcmf_ifdown(FAR struct net_driver_s *dev);
 
-static void bcmf_txavail_work(FAR void *arg);
 static int  bcmf_txavail(FAR struct net_driver_s *dev);
 
 #if defined(CONFIG_NET_MCASTGROUP) || defined(CONFIG_NET_ICMPv6)
@@ -148,6 +149,9 @@ int bcmf_netdev_alloc_tx_frame(FAR struct bcmf_dev_s *priv)
       wlerr("ERROR: Cannot allocate TX frame\n");
       return -ENOMEM;
     }
+
+  priv->bc_dev.d_buf = priv->cur_tx_frame->data;
+  priv->bc_dev.d_len = 0;
 
   return OK;
 }
@@ -223,6 +227,7 @@ static void bcmf_receive(FAR struct bcmf_dev_s *priv)
         {
           /* No more frame to process */
 
+          bcmf_netdev_notify_tx(priv);
           break;
         }
 
@@ -472,13 +477,13 @@ static int bcmf_txpoll(FAR struct net_driver_s *dev)
 }
 
 /****************************************************************************
- * Function: bcmf_txdone_poll_work
+ * Function: bcmf_tx_poll_work
  *
  * Description:
  *   The function is called in order to perform an out-of-sequence TX poll.
  *   This is done:
  *
- *   1. After completion of a transmission (bcmf_netdev_notify_tx_done), and
+ *   1. After completion of a transmission (bcmf_netdev_notify_tx), and
  *   2. When new TX data is available (bcmf_txavail).
  *
  * Input Parameters:
@@ -491,21 +496,35 @@ static int bcmf_txpoll(FAR struct net_driver_s *dev)
  *
  ****************************************************************************/
 
-static void bcmf_txdone_poll_work(FAR void *arg)
+static void bcmf_tx_poll_work(FAR void *arg)
 {
   FAR struct bcmf_dev_s *priv = (FAR struct bcmf_dev_s *)arg;
 
-  /* Check if there is room in the hardware to hold another packet. */
-
   net_lock();
 
-  if (bcmf_netdev_alloc_tx_frame(priv) == OK)
-    {
-      /* If so, then poll the network for new XMIT data */
+  /* Ignore the notification if the interface is not yet up */
 
-      priv->bc_dev.d_buf = priv->cur_tx_frame->data;
-      priv->bc_dev.d_len = 0;
-      devif_poll(&priv->bc_dev, bcmf_txpoll);
+  if (priv->bc_bifup)
+    {
+      /* Check if there is room in the hardware to hold another packet. */
+
+      while (bcmf_netdev_alloc_tx_frame(priv) == OK)
+        {
+          /* If so, then poll the network for new XMIT data */
+
+          devif_poll(&priv->bc_dev, bcmf_txpoll);
+
+          /* Break out the continuous send if :
+           * 1. IP stack has no data to send.
+           * 2. RX worker ready.
+           */
+
+          if (priv->cur_tx_frame != NULL ||
+              !work_available(&priv->bc_rxwork))
+            {
+              break;
+            }
+        }
     }
 
   net_unlock();
@@ -530,6 +549,7 @@ static void bcmf_txdone_poll_work(FAR void *arg)
 static void bcmf_rxpoll_work(FAR void *arg)
 {
   FAR struct bcmf_dev_s *priv = (FAR struct bcmf_dev_s *)arg;
+  FAR void *oldbuf;
 
   /* Lock the network and serialize driver operations if necessary.
    * NOTE: Serialization is only required in the case where the driver work
@@ -539,7 +559,15 @@ static void bcmf_rxpoll_work(FAR void *arg)
 
   net_lock();
 
+  /* Tx work will hold the d_buf until there is data to send,
+   * replace and cache the d_buf temporarily
+   */
+
+  oldbuf = priv->bc_dev.d_buf;
+
   bcmf_receive(priv);
+
+  priv->bc_dev.d_buf = oldbuf;
 
   /* Check if a packet transmission just completed.  If so, call bcmf_txdone.
    * This may disable further Tx interrupts if there are no pending
@@ -553,23 +581,23 @@ static void bcmf_rxpoll_work(FAR void *arg)
 }
 
 /****************************************************************************
- * Name: bcmf_netdev_notify_tx_done
+ * Name: bcmf_netdev_notify_tx
  *
  * Description:
- *   Notify callback called when TX frame is sent and freed.
+ *   Notify callback called when TX frame is avail or sent.
  *
  * Assumptions:
  *
  ****************************************************************************/
 
-void bcmf_netdev_notify_tx_done(FAR struct bcmf_dev_s *priv)
+void bcmf_netdev_notify_tx(FAR struct bcmf_dev_s *priv)
 {
   /* Schedule to perform a poll for new Tx data the worker thread. */
 
   if (work_available(&priv->bc_pollwork))
     {
       work_queue(BCMFWORK, &priv->bc_pollwork,
-                 bcmf_txdone_poll_work, priv, 0);
+                 bcmf_tx_poll_work, priv, 0);
     }
 }
 
@@ -587,7 +615,10 @@ void bcmf_netdev_notify_rx(FAR struct bcmf_dev_s *priv)
 {
   /* Queue a job to process RX frames */
 
-  work_queue(BCMFWORK, &priv->bc_rxwork, bcmf_rxpoll_work, priv, 0);
+  if (work_available(&priv->bc_rxwork))
+    {
+      work_queue(BCMFWORK, &priv->bc_rxwork, bcmf_rxpoll_work, priv, 0);
+    }
 }
 
 /****************************************************************************
@@ -610,20 +641,55 @@ void bcmf_netdev_notify_rx(FAR struct bcmf_dev_s *priv)
 static int bcmf_ifup(FAR struct net_driver_s *dev)
 {
   FAR struct bcmf_dev_s *priv = (FAR struct bcmf_dev_s *)dev->d_private;
+  irqstate_t flags;
+  uint32_t out_len;
+  int ret;
 
-#ifdef CONFIG_NET_IPv4
-  ninfo("Bringing up: %d.%d.%d.%d\n",
-        (int)(dev->d_ipaddr & 0xff),
-        (int)((dev->d_ipaddr >> 8) & 0xff),
-        (int)((dev->d_ipaddr >> 16) & 0xff),
-        (int)(dev->d_ipaddr >> 24));
-#endif
-#ifdef CONFIG_NET_IPv6
-  ninfo("Bringing up: %04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x\n",
-        dev->d_ipv6addr[0], dev->d_ipv6addr[1], dev->d_ipv6addr[2],
-        dev->d_ipv6addr[3], dev->d_ipv6addr[4], dev->d_ipv6addr[5],
-        dev->d_ipv6addr[6], dev->d_ipv6addr[7]);
-#endif
+  /* Disable the hardware interrupt */
+
+  flags = enter_critical_section();
+
+  if (priv->bc_bifup)
+    {
+      goto errout_in_critical_section;
+    }
+
+  ret = bcmf_wl_active(priv, true);
+  if (ret != OK)
+    {
+      goto errout_in_critical_section;
+    }
+
+  /* Enable chip */
+
+  ret = bcmf_wl_enable(priv, true);
+  if (ret != OK)
+    {
+      goto errout_in_wl_active;
+    }
+
+  /* Set customized MAC address */
+
+  if (bcmf_board_etheraddr(&priv->bc_dev.d_mac.ether))
+    {
+      out_len = ETHER_ADDR_LEN;
+      bcmf_cdc_iovar_request(priv, CHIP_STA_INTERFACE, true,
+                             IOVAR_STR_CUR_ETHERADDR,
+                             priv->bc_dev.d_mac.ether.ether_addr_octet,
+                             &out_len);
+    }
+
+  /* Query MAC address */
+
+  out_len = ETHER_ADDR_LEN;
+  ret = bcmf_cdc_iovar_request(priv, CHIP_STA_INTERFACE, false,
+                               IOVAR_STR_CUR_ETHERADDR,
+                               priv->bc_dev.d_mac.ether.ether_addr_octet,
+                               &out_len);
+  if (ret != OK)
+    {
+      goto errout_in_wl_active;
+    }
 
   /* Instantiate MAC address from priv->bc_dev.d_mac.ether.ether_addr_octet */
 
@@ -636,6 +702,16 @@ static int bcmf_ifup(FAR struct net_driver_s *dev)
   /* Enable the hardware interrupt */
 
   priv->bc_bifup = true;
+
+  goto errout_in_critical_section;
+
+errout_in_wl_active:
+  bcmf_wl_active(priv, false);
+
+errout_in_critical_section:
+
+  leave_critical_section(flags);
+
   return OK;
 }
 
@@ -663,69 +739,20 @@ static int bcmf_ifdown(FAR struct net_driver_s *dev)
   /* Disable the hardware interrupt */
 
   flags = enter_critical_section();
-#warning Missing logic
-
-  /* Put the EMAC in its reset, non-operational state.  This should be
-   * a known configuration that will guarantee the bcmf_ifup() always
-   * successfully brings the interface back up.
-   */
-
-  /* Mark the device "down" */
-
-  priv->bc_bifup = false;
-  leave_critical_section(flags);
-  return OK;
-}
-
-/****************************************************************************
- * Name: bcmf_txavail_work
- *
- * Description:
- *   Perform an out-of-cycle poll on the worker thread.
- *
- * Input Parameters:
- *   arg - Reference to the NuttX driver state structure (cast to void*)
- *
- * Returned Value:
- *   None
- *
- * Assumptions:
- *   Called on the higher priority worker thread.
- *
- ****************************************************************************/
-
-static void bcmf_txavail_work(FAR void *arg)
-{
-  FAR struct bcmf_dev_s *priv = (FAR struct bcmf_dev_s *)arg;
-
-  /* Lock the network and serialize driver operations if necessary.
-   * NOTE: Serialization is only required in the case where the driver work
-   * is performed on an LP worker thread and where more than one LP worker
-   * thread has been configured.
-   */
-
-  net_lock();
-
-  /* Ignore the notification if the interface is not yet up */
 
   if (priv->bc_bifup)
     {
-      /* Check if there is room in the hardware to hold another packet. */
+      bcmf_wl_enable(priv, false);
+      bcmf_wl_active(priv, false);
 
-      if (bcmf_netdev_alloc_tx_frame(priv))
-        {
-          goto exit_unlock;
-        }
+      /* Mark the device "down" */
 
-      /* If so, then poll the network for new XMIT data */
-
-      priv->bc_dev.d_buf = priv->cur_tx_frame->data;
-      priv->bc_dev.d_len = 0;
-      devif_poll(&priv->bc_dev, bcmf_txpoll);
+      priv->bc_bifup = false;
     }
 
-exit_unlock:
-  net_unlock();
+  leave_critical_section(flags);
+
+  return OK;
 }
 
 /****************************************************************************
@@ -751,18 +778,7 @@ static int bcmf_txavail(FAR struct net_driver_s *dev)
 {
   FAR struct bcmf_dev_s *priv = (FAR struct bcmf_dev_s *)dev->d_private;
 
-  /* Is our single work structure available?  It may not be if there are
-   * pending interrupt actions and we will have to ignore the Tx
-   * availability action.
-   */
-
-  if (work_available(&priv->bc_pollwork))
-    {
-      /* Schedule to serialize the poll on the worker thread. */
-
-      work_queue(BCMFWORK, &priv->bc_pollwork, bcmf_txavail_work, priv, 0);
-    }
-
+  bcmf_netdev_notify_tx(priv);
   return OK;
 }
 
@@ -918,8 +934,15 @@ static void bcmf_ipv6multicast(FAR struct bcmf_dev_s *priv)
 static int bcmf_ioctl(FAR struct net_driver_s *dev, int cmd,
                       unsigned long arg)
 {
-  int ret;
   FAR struct bcmf_dev_s *priv = (FAR struct bcmf_dev_s *)dev->d_private;
+  int ret;
+
+  if (!priv->bc_bifup)
+    {
+      wlerr("ERROR: invaild state "
+            "(IFF_DOWN, unable to execute command: %x)\n", cmd);
+      return -EPERM;
+    }
 
   /* Decode and dispatch the driver-specific IOCTL command */
 
@@ -951,8 +974,7 @@ static int bcmf_ioctl(FAR struct net_driver_s *dev, int cmd,
         break;
 
       case SIOCGIWFREQ:     /* Get channel/frequency (Hz) */
-        wlwarn("WARNING: SIOCGIWFREQ not implemented\n");
-        ret = -ENOSYS;
+        ret = bcmf_wl_get_channel(priv, (struct iwreq *)arg);
         break;
 
       case SIOCSIWMODE:     /* Set operation mode */
@@ -960,18 +982,15 @@ static int bcmf_ioctl(FAR struct net_driver_s *dev, int cmd,
         break;
 
       case SIOCGIWMODE:     /* Get operation mode */
-        wlwarn("WARNING: SIOCGIWMODE not implemented\n");
-        ret = -ENOSYS;
+        ret = bcmf_wl_get_mode(priv, (struct iwreq *)arg);
         break;
 
       case SIOCSIWAP:       /* Set access point MAC addresses */
-        wlwarn("WARNING: SIOCSIWAP not implemented\n");
-        ret = -ENOSYS;
+        ret = bcmf_wl_set_bssid(priv, (struct iwreq *)arg);
         break;
 
       case SIOCGIWAP:       /* Get access point MAC addresses */
-        wlwarn("WARNING: SIOCGIWAP not implemented\n");
-        ret = -ENOSYS;
+        ret = bcmf_wl_get_bssid(priv, (struct iwreq *)arg);
         break;
 
       case SIOCSIWESSID:    /* Set ESSID (network name) */
@@ -979,8 +998,7 @@ static int bcmf_ioctl(FAR struct net_driver_s *dev, int cmd,
         break;
 
       case SIOCGIWESSID:    /* Get ESSID */
-        wlwarn("WARNING: SIOCGIWESSID not implemented\n");
-        ret = -ENOSYS;
+        ret = bcmf_wl_get_ssid(priv, (struct iwreq *)arg);
         break;
 
       case SIOCSIWRATE:     /* Set default bit rate (bps) */
@@ -989,8 +1007,7 @@ static int bcmf_ioctl(FAR struct net_driver_s *dev, int cmd,
         break;
 
       case SIOCGIWRATE:     /* Get default bit rate (bps) */
-        wlwarn("WARNING: SIOCGIWRATE not implemented\n");
-        ret = -ENOSYS;
+        ret = bcmf_wl_get_rate(priv, (struct iwreq *)arg);
         break;
 
       case SIOCSIWTXPOW:    /* Set transmit power (dBm) */
@@ -999,12 +1016,19 @@ static int bcmf_ioctl(FAR struct net_driver_s *dev, int cmd,
         break;
 
       case SIOCGIWTXPOW:    /* Get transmit power (dBm) */
-        wlwarn("WARNING: SIOCGIWTXPOW not implemented\n");
-        ret = -ENOSYS;
+        ret = bcmf_wl_get_txpower(priv, (struct iwreq *)arg);
+        break;
+
+      case SIOCGIWSENS:     /* Get transmit power (dBm) */
+        ret = bcmf_wl_get_rssi(priv, (struct iwreq *)arg);
+        break;
+
+      case SIOCGIWRANGE:    /* Get range of parameters */
+        ret = bcmf_wl_get_iwrange(priv, (struct iwreq *)arg);
         break;
 
       default:
-        nerr("ERROR: Unrecognized IOCTL command: %d\n", cmd);
+        nerr("ERROR: Unrecognized IOCTL command: %x\n", cmd);
         ret = -ENOTTY;  /* Special return value for this case */
         break;
     }
@@ -1035,8 +1059,6 @@ static int bcmf_ioctl(FAR struct net_driver_s *dev, int cmd,
 
 int bcmf_netdev_register(FAR struct bcmf_dev_s *priv)
 {
-  uint32_t out_len;
-
   /* Initialize network driver structure */
 
   memset(&priv->bc_dev, 0, sizeof(priv->bc_dev));
@@ -1057,27 +1079,9 @@ int bcmf_netdev_register(FAR struct bcmf_dev_s *priv)
   priv->cur_tx_frame     = NULL;
   priv->bc_dev.d_buf     = NULL;
 
-  /* Put the interface in the down state.  This usually amounts to resetting
-   * the device and/or calling bcmf_ifdown().
-   */
+  /* Initialize MAC address */
 
-  /* Enable chip */
-
-  if (bcmf_wl_enable(priv, true) != OK)
-    {
-      return -EIO;
-    }
-
-  /* Query MAC address */
-
-  out_len = ETHER_ADDR_LEN;
-  if (bcmf_cdc_iovar_request(priv, CHIP_STA_INTERFACE, false,
-                             IOVAR_STR_CUR_ETHERADDR,
-                             priv->bc_dev.d_mac.ether.ether_addr_octet,
-                             &out_len) != OK)
-    {
-      return -EIO;
-    }
+  bcmf_board_etheraddr(&priv->bc_dev.d_mac.ether);
 
   /* Register the device with the OS so that socket IOCTLs can be performed */
 

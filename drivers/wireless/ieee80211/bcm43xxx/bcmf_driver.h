@@ -64,8 +64,6 @@ struct bcmf_dev_s
   FAR struct bcmf_bus_dev_s *bus; /* Bus interface structure */
 
   bool bc_bifup;             /* true:ifup false:ifdown */
-  struct wdog_s bc_txpoll;   /* TX poll timer */
-  struct work_s bc_irqwork;  /* For deferring interrupt work to the work queue */
   struct work_s bc_rxwork;   /* For deferring rx work to the work queue */
   struct work_s bc_pollwork; /* For deferring poll work to the work queue */
 
@@ -91,8 +89,8 @@ struct bcmf_dev_s
 
   int scan_status;                     /* Current scan status */
   struct wdog_s scan_timeout;          /* Scan timeout timer */
-  FAR uint8_t *scan_result;            /* Temp buffer that holds results */
-  unsigned int scan_result_size;       /* Current size of temp buffer */
+  FAR wl_bss_info_t *scan_result;      /* Temp buffer that holds results */
+  unsigned int scan_result_entries;    /* Current entries of temp buffer */
 
   sem_t auth_signal; /* Authentication notification signal */
   int   auth_status; /* Authentication status */
@@ -153,7 +151,24 @@ int bcmf_wl_set_auth_param(FAR struct bcmf_dev_s *priv, struct iwreq *iwr);
 int bcmf_wl_set_encode_ext(FAR struct bcmf_dev_s *priv, struct iwreq *iwr);
 
 int bcmf_wl_set_mode(FAR struct bcmf_dev_s *priv, struct iwreq *iwr);
+int bcmf_wl_get_mode(FAR struct bcmf_dev_s *priv, struct iwreq *iwr);
 
 int bcmf_wl_set_ssid(FAR struct bcmf_dev_s *priv, struct iwreq *iwr);
+int bcmf_wl_get_ssid(FAR struct bcmf_dev_s *priv, struct iwreq *iwr);
+
+int bcmf_wl_set_bssid(FAR struct bcmf_dev_s *priv, struct iwreq *iwr);
+int bcmf_wl_get_bssid(FAR struct bcmf_dev_s *priv, struct iwreq *iwr);
+
+int bcmf_wl_get_channel(FAR struct bcmf_dev_s *priv, struct iwreq *iwr);
+
+int bcmf_wl_get_rate(FAR struct bcmf_dev_s *priv, struct iwreq *iwr);
+
+int bcmf_wl_get_txpower(FAR struct bcmf_dev_s *priv, struct iwreq *iwr);
+
+int bcmf_wl_get_rssi(FAR struct bcmf_dev_s *priv, struct iwreq *iwr);
+
+int bcmf_wl_get_iwrange(FAR struct bcmf_dev_s *priv, struct iwreq *iwr);
+
+int bcmf_wl_active(FAR struct bcmf_dev_s *priv, bool active);
 
 #endif /* __DRIVERS_WIRELESS_IEEE80211_BCM43XXX_BCMF_DRIVER_H */

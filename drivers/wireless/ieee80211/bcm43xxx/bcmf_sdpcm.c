@@ -312,7 +312,7 @@ int bcmf_sdpcm_readframe(FAR struct bcmf_dev_s *priv)
 
         /* Queue frame and notify network layer frame is available */
 
-        if (nxsem_wait(&sbus->queue_mutex) < 0)
+        if (nxsem_wait_uninterruptible(&sbus->queue_mutex) < 0)
           {
             DEBUGPANIC();
           }
@@ -371,7 +371,7 @@ int bcmf_sdpcm_sendframe(FAR struct bcmf_dev_s *priv)
       return -EAGAIN;
     }
 
-  if (nxsem_wait(&sbus->queue_mutex) < 0)
+  if (nxsem_wait_uninterruptible(&sbus->queue_mutex) < 0)
     {
       DEBUGPANIC();
     }
@@ -391,25 +391,11 @@ int bcmf_sdpcm_sendframe(FAR struct bcmf_dev_s *priv)
                (unsigned long)sframe->header.base);
 #endif
 
-  /* Write the first 4 bytes of sdpcm header */
+  /* Write the frame data (the buffer is DMA aligned here) */
 
   ret = bcmf_transfer_bytes(sbus, true, 2, 0,
                             sframe->header.base,
-                            FIRST_WORD_SIZE);
-  if (ret != OK)
-    {
-      /* TODO handle retry count and remove frame from queue + abort TX */
-
-      wlinfo("fail send frame %d\n", ret);
-      ret = -EIO;
-      goto exit_abort;
-    }
-
-  /* Write the remaining frame data (the buffer is DMA aligned here) */
-
-  ret = bcmf_transfer_bytes(sbus, true, 2, 0,
-                            sframe->header.base + FIRST_WORD_SIZE,
-                            sframe->header.len - FIRST_WORD_SIZE);
+                            sframe->header.len);
   if (ret != OK)
     {
       /* TODO handle retry count and remove frame from queue + abort TX */
@@ -433,7 +419,7 @@ int bcmf_sdpcm_sendframe(FAR struct bcmf_dev_s *priv)
     {
       /* Notify upper layer at least one TX buffer is available */
 
-      bcmf_netdev_notify_tx_done(priv);
+      bcmf_netdev_notify_tx(priv);
     }
 
   return OK;
@@ -473,7 +459,7 @@ int bcmf_sdpcm_queue_frame(FAR struct bcmf_dev_s *priv,
 
   /* Add frame in tx queue */
 
-  if (nxsem_wait(&sbus->queue_mutex) < 0)
+  if (nxsem_wait_uninterruptible(&sbus->queue_mutex) < 0)
     {
       DEBUGPANIC();
     }
@@ -533,7 +519,7 @@ struct bcmf_frame_s *bcmf_sdpcm_get_rx_frame(FAR struct bcmf_dev_s *priv)
   struct bcmf_sdio_frame *sframe;
   FAR struct bcmf_sdio_dev_s *sbus = (FAR struct bcmf_sdio_dev_s *)priv->bus;
 
-  if (nxsem_wait(&sbus->queue_mutex) < 0)
+  if (nxsem_wait_uninterruptible(&sbus->queue_mutex) < 0)
     {
       DEBUGPANIC();
     }
