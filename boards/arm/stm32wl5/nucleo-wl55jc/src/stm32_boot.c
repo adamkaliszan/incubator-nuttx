@@ -32,6 +32,10 @@
 
 #include <arch/board/board.h>
 
+#ifdef CONFIG_VIDEO_FB
+#include <nuttx/video/fb.h>
+#endif
+
 #include "arm_internal.h"
 #include "nucleo-wl55jc.h"
 
@@ -81,10 +85,26 @@ void stm32wl5_board_initialize(void)
 #ifdef CONFIG_BOARD_LATE_INITIALIZE
 void board_late_initialize(void)
 {
+  int ret;
+  lcdinfo("Initialize board");
 
 #if defined(CONFIG_STM32WL5_SPI1) || defined(CONFIG_STM32WL5_SPI2S2)
-  stm32wl5_board_initialize();
+  stm32wl5_spidev_initialize();
 #endif
+
+#if defined(CONFIG_LCD_SSD1680) && !defined(CONFIG_VIDEO_FB)
+  board_lcd_initialize();
+#endif
+
+#ifdef CONFIG_VIDEO_FB
+  ret = fb_register(0, 0);
+  if (ret < 0)
+    {
+      syslog(LOG_ERR, "ERROR: fb_register() failed: %d\n", ret);
+    }
+#endif
+
+
   /* Perform NSH initialization here instead of from the NSH.  This
    * alternative NSH initialization is necessary when NSH is ran in
    * user-space but the initialization function must run in kernel space.

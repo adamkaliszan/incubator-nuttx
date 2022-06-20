@@ -165,7 +165,11 @@ int board_lcd_initialize(void)
   return OK;
 }
 
-#endif
+
+void board_lcd_uninitialize(void)
+{
+
+}
 
 /****************************************************************************
  * Name: board_ssd1680_getdev
@@ -182,3 +186,9 @@ struct lcd_dev_s *board_ssd1680_getdev(void)
 {
   return g_lcddev;
 }
+
+struct lcd_dev_s *board_lcd_getdev(int devno)
+{
+  return board_ssd1680_getdev();
+}
+#endif

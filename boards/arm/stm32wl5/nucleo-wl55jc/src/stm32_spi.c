@@ -63,12 +63,12 @@ struct spi_dev_s *g_spi2;
  * Name: stm32_spidev_initialize
  *
  * Description:
- *   Called to configure SPI chip select GPIO pins for the Nucleo-F401RE and
- *   Nucleo-F411RE boards.
+ *   Called to configure SPI chip select GPIO pins for the Nucleo-wl55JC
+ *   boards.
  *
  ****************************************************************************/
 
-void weak_function stm32_spidev_initialize(void)
+void weak_function stm32wl5_spidev_initialize(void)
 {
 #ifdef CONFIG_STM32WL5_SPI1
   /* Configure SPI-based devices */
@@ -80,6 +80,7 @@ void weak_function stm32_spidev_initialize(void)
     }
 
 #ifdef CONFIG_LCD_SSD1680
+  spiinfo("Preparing additional lines for SSD1680 device\n");
   stm32wl5_configgpio(GPIO_SSD1680_CS);    /* SSD1680 chip select */
   stm32wl5_configgpio(GPIO_SSD1680_CMD);   /* SSD1680 data/!command */
   stm32wl5_configgpio(GPIO_SSD1680_RST);   /* SSD1680 reset */
@@ -97,93 +98,99 @@ void weak_function stm32_spidev_initialize(void)
 }
 
 /****************************************************************************
- * Name:  stm32_spi1/2/3select and stm32_spi1/2/3status
+ * Name:  stm32_spi1/2s2elect and stm32_spi1/2s2status
  *
  * Description:
- *   The external functions, stm32_spi1/2/3select and stm32_spi1/2/3status
+ *   The external functions, stm32_spi1/2s2select and stm32_spi1/2s2status
  *   must be provided by board-specific logic.  They are implementations of
  *   the select and status methods of the SPI interface defined by struct
  *   spi_ops_s (see include/nuttx/spi/spi.h). All other methods (including
- *   stm32_spibus_initialize()) are provided by common STM32 logic. To use
- *   this common SPI logic on your board:
+ *   stm32wl5_spibus_initialize()) are provided by common STM32 logic. 
+ *   To use this common SPI logic on your board:
  *
  *   1. Provide logic in stm32_boardinitialize() to configure SPI chip select
  *      pins.
- *   2. Provide stm32_spi1/2/3select() and stm32_spi1/2/3status() functions
+ *   2. Provide stm32_spi1/2s2select() and stm32_spi1/2s2status() functions
  *      in your board-specific logic.  These functions will perform chip
  *      selection and status operations using GPIOs in the way your board is
  *      configured.
- *   3. Add a calls to stm32_spibus_initialize() in your low level
+ *   3. Add a calls to stm32wl5_spibus_initialize() in your low level
  *      application initialization logic
- *   4. The handle returned by stm32_spibus_initialize() may then be used to
- *      bind the SPI driver to higher level logic (e.g., calling
+ *   4. The handle returned by stm32wl5_spibus_initialize() may then be used
+ *      to bind the SPI driver to higher level logic (e.g., calling
  *      mmcsd_spislotinitialize(), for example, will bind the SPI driver to
  *      the SPI MMC/SD driver).
  *
  ****************************************************************************/
 
-#ifdef CONFIG_STM32_SPI1
-void stm32_spi1select(struct spi_dev_s *dev, uint32_t devid,
+#ifdef CONFIG_STM32WL5_SPI1
+void stm32wl5_spi1select(struct spi_dev_s *dev, uint32_t devid,
                       bool selected)
 {
   spiinfo("devid: %d CS: %s\n", (int)devid, selected ? "assert" :
           "de-assert");
 
-#if defined(CONFIG_LCD_SSD1306_SPI)
+#if defined(CONFIG_LCD_SSD1680)
   if (devid == SPIDEV_DISPLAY(0))
     {
-      stm32_gpiowrite(GPIO_SSD1306_CS, !selected);
+      stm32wl5_gpiowrite(GPIO_SSD1680_CS, !selected);
     }
 #endif
 
 #if defined(CONFIG_CAN_MCP2515)
   if (devid == SPIDEV_CANBUS(0))
     {
-      stm32_gpiowrite(GPIO_MCP2515_CS, !selected);
+      stm32wl5_gpiowrite(GPIO_MCP2515_CS, !selected);
     }
 #endif
 
 #ifdef HAVE_MMCSD
   if (devid == SPIDEV_MMCSD(0))
     {
-      stm32_gpiowrite(GPIO_SPI_CS_SD_CARD, !selected);
+      stm32wl5_gpiowrite(GPIO_SPI_CS_SD_CARD, !selected);
     }
 #endif
 }
 
-uint8_t stm32_spi1status(struct spi_dev_s *dev, uint32_t devid)
+uint8_t stm32wl5_spi1status(struct spi_dev_s *dev, uint32_t devid)
 {
   return 0;
 }
+
+int stm32wl5_spi1cmddata(struct spi_dev_s *dev, uint32_t devid, bool cmd)
+{
+#if defined(CONFIG_LCD_SSD1680)
+  if (devid == SPIDEV_DISPLAY(0))
+    {
+      stm32wl5_gpiowrite(GPIO_SSD1680_CMD, !cmd);
+    }
 #endif
 
-#ifdef CONFIG_STM32_SPI2
-void stm32_spi2select(struct spi_dev_s *dev, uint32_t devid,
+  return OK;
+}
+
+
+#endif
+
+#ifdef CONFIG_STM32WL5_SPI2S2
+void stm32wl5_spi2s2select(struct spi_dev_s *dev, uint32_t devid,
                       bool selected)
 {
   spiinfo("devid: %d CS: %s\n", (int)devid, selected ? "assert" :
           "de-assert");
 }
 
-uint8_t stm32_spi2status(struct spi_dev_s *dev, uint32_t devid)
+uint8_t stm32wl5_spi2s2status(struct spi_dev_s *dev, uint32_t devid)
 {
   return 0;
 }
-#endif
 
-#ifdef CONFIG_STM32_SPI3
-void stm32_spi3select(struct spi_dev_s *dev, uint32_t devid,
-                      bool selected)
+int stm32wl5_spi2s2cmddata(struct spi_dev_s *dev, uint32_t devid, bool cmd)
 {
-  spiinfo("devid: %d CS: %s\n", (int)devid, selected ? "assert" :
-          "de-assert");
 }
 
-uint8_t stm32_spi3status(struct spi_dev_s *dev, uint32_t devid)
-{
-  return 0;
-}
 #endif
+
 
 /****************************************************************************
  * Name: stm32_spi1cmddata

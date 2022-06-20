@@ -78,4 +78,14 @@
 
 void board_leds_initialize(void);
 
+/****************************************************************************
+ * Name: stm32wl5_spidev_initialize
+ *
+ * Description:
+ *   Initialize SPIs
+ *
+ ****************************************************************************/
+
+void stm32wl5_spidev_initialize(void);
+
 #endif /* __BOARDS_ARM_STM32WL5_NUCLEO_WL55JC_SRC_NUCLEO_WL55JC_H */
