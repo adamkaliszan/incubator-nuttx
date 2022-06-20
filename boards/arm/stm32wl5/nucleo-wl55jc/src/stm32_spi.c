@@ -60,7 +60,7 @@ struct spi_dev_s *g_spi2;
  ****************************************************************************/
 
 /****************************************************************************
- * Name: stm32_spidev_initialize
+ * Name: stm32wl5_spidev_initialize
  *
  * Description:
  *   Called to configure SPI chip select GPIO pins for the Nucleo-wl55JC
@@ -80,40 +80,37 @@ void weak_function stm32wl5_spidev_initialize(void)
     }
 
 #ifdef CONFIG_LCD_SSD1680
-  spiinfo("Preparing additional lines for SSD1680 device\n");
   stm32wl5_configgpio(GPIO_SSD1680_CS);    /* SSD1680 chip select */
   stm32wl5_configgpio(GPIO_SSD1680_CMD);   /* SSD1680 data/!command */
-  stm32wl5_configgpio(GPIO_SSD1680_RST);   /* SSD1680 reset */
-  stm32wl5_configgpio(GPIO_SSD1680_BUSY);  /* SSD1680 busy */
-
 #endif
 
 #endif
 
-#ifdef CONFIG_STM32_SPI2S2
+#ifdef CONFIG_STM32WL5_SPI2S2
   /* Configure SPI-based devices */
 
-  g_spi2 = stm32_spibus_initialize(2);
+  g_spi2 = stm32wl5_spibus_initialize(2);
 #endif
 }
 
 /****************************************************************************
- * Name:  stm32_spi1/2s2elect and stm32_spi1/2s2status
+ * Name:  stm32wl5_spi1/2s2elect and stm32wl5_spi1/2s2status
  *
  * Description:
- *   The external functions, stm32_spi1/2s2select and stm32_spi1/2s2status
- *   must be provided by board-specific logic.  They are implementations of
- *   the select and status methods of the SPI interface defined by struct
- *   spi_ops_s (see include/nuttx/spi/spi.h). All other methods (including
- *   stm32wl5_spibus_initialize()) are provided by common STM32 logic. 
+ *   The external functions, stm32wl5_spi1/2s2select and 
+ *   stm32wl5_spi1/2s2status must be provided by board-specific logic.
+ *   They are implementations of the select and status methods of the SPI
+ *   interface defined by struct spi_ops_s (see include/nuttx/spi/spi.h).
+ *   All other methods (including stm32wl5_spibus_initialize()) are provided
+ *   by common STM32 logic. 
  *   To use this common SPI logic on your board:
  *
- *   1. Provide logic in stm32_boardinitialize() to configure SPI chip select
- *      pins.
- *   2. Provide stm32_spi1/2s2select() and stm32_spi1/2s2status() functions
- *      in your board-specific logic.  These functions will perform chip
- *      selection and status operations using GPIOs in the way your board is
- *      configured.
+ *   1. Provide logic in stm32wl5_boardinitialize() to configure SPI chip
+ *      select pins.
+ *   2. Provide stm32wl5_spi1/2s2select() and stm32wl5_spi1/2s2status()
+ *      functions in your board-specific logic.  These functions will perform
+ *      chip selection and status operations using GPIOs in the way your board
+ *      is configured.
  *   3. Add a calls to stm32wl5_spibus_initialize() in your low level
  *      application initialization logic
  *   4. The handle returned by stm32wl5_spibus_initialize() may then be used
@@ -157,19 +154,6 @@ uint8_t stm32wl5_spi1status(struct spi_dev_s *dev, uint32_t devid)
   return 0;
 }
 
-int stm32wl5_spi1cmddata(struct spi_dev_s *dev, uint32_t devid, bool cmd)
-{
-#if defined(CONFIG_LCD_SSD1680)
-  if (devid == SPIDEV_DISPLAY(0))
-    {
-      stm32wl5_gpiowrite(GPIO_SSD1680_CMD, !cmd);
-    }
-#endif
-
-  return OK;
-}
-
-
 #endif
 
 #ifdef CONFIG_STM32WL5_SPI2S2
@@ -193,7 +177,7 @@ int stm32wl5_spi2s2cmddata(struct spi_dev_s *dev, uint32_t devid, bool cmd)
 
 
 /****************************************************************************
- * Name: stm32_spi1cmddata
+ * Name: stm32wl5_spi1cmddata
  *
  * Description:
  *   Set or clear the SH1101A A0 or SD1306 D/C n bit to select data (true)
@@ -216,13 +200,13 @@ int stm32wl5_spi2s2cmddata(struct spi_dev_s *dev, uint32_t devid, bool cmd)
  ****************************************************************************/
 
 #ifdef CONFIG_SPI_CMDDATA
-#ifdef CONFIG_STM32_SPI1
-int stm32_spi1cmddata(struct spi_dev_s *dev, uint32_t devid, bool cmd)
+#ifdef CONFIG_STM32WL5_SPI1
+int stm32wl5_spi1cmddata(struct spi_dev_s *dev, uint32_t devid, bool cmd)
 {
-#if defined(CONFIG_LCD_SSD16800)
+#if defined(CONFIG_LCD_SSD1680)
   if (devid == SPIDEV_DISPLAY(0))
     {
-      stm32_gpiowrite(GPIO_SSD1680_CMD, !cmd);
+      stm32wl5_gpiowrite(GPIO_SSD1680_CMD, !cmd);
     }
 #endif
 
@@ -230,19 +214,13 @@ int stm32_spi1cmddata(struct spi_dev_s *dev, uint32_t devid, bool cmd)
 }
 #endif
 
-#ifdef CONFIG_STM32_SPI2
-int stm32_spi2cmddata(struct spi_dev_s *dev, uint32_t devid, bool cmd)
+#ifdef CONFIG_STM32WL5_SPI2S2
+int stm32wl5_spi2cmddata(struct spi_dev_s *dev, uint32_t devid, bool cmd)
 {
   return OK;
 }
 #endif
 
-#ifdef CONFIG_STM32_SPI3
-int stm32_spi3cmddata(struct spi_dev_s *dev, uint32_t devid, bool cmd)
-{
-  return OK;
-}
-#endif
 #endif /* CONFIG_SPI_CMDDATA */
 
-#endif /* CONFIG_STM32_SPI1 || CONFIG_STM32_SPI2 || CONFIG_STM32_SPI3 */
+#endif /* CONFIG_STM32WL5_SPI1 || CONFIG_STM32WL5_SPI2S2 */

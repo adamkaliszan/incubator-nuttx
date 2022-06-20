@@ -20,7 +20,7 @@
 
 include $(TOPDIR)/Make.defs
 
-CSRCS = stm32_boot.c stm32_leds.c
+CSRCS = stm32_boot.c stm32_leds.c stm32_spi.c
 
 ifeq ($(CONFIG_BOARDCTL),y)
 CSRCS += stm32_appinit.c
