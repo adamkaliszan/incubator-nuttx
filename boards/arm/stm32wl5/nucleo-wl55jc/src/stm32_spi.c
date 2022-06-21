@@ -124,7 +124,7 @@ void weak_function stm32wl5_spidev_initialize(void)
 void stm32wl5_spi1select(struct spi_dev_s *dev, uint32_t devid,
                       bool selected)
 {
-  spiinfo("devid: %d CS: %s\n", (int)devid, selected ? "assert" :
+  spiinfo("devid: 0x%x CS: %s\n", (int)devid, selected ? "assert" :
           "de-assert");
 
 #if defined(CONFIG_LCD_SSD1680)
@@ -160,7 +160,7 @@ uint8_t stm32wl5_spi1status(struct spi_dev_s *dev, uint32_t devid)
 void stm32wl5_spi2s2select(struct spi_dev_s *dev, uint32_t devid,
                       bool selected)
 {
-  spiinfo("devid: %d CS: %s\n", (int)devid, selected ? "assert" :
+  spiinfo("devid: 0x%x CS: %s\n", (int)devid, selected ? "assert" :
           "de-assert");
 }
 

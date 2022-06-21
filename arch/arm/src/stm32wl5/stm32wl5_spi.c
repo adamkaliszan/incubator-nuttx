@@ -194,9 +194,18 @@ struct stm32wl5_spidev_s
 
 static inline uint16_t spi_getreg(struct stm32wl5_spidev_s *priv,
                                   uint8_t offset);
+
+static inline uint8_t spi_getreg8(struct stm32wl5_spidev_s *priv,
+                                  uint8_t offset);
+
 static inline void spi_putreg(struct stm32wl5_spidev_s *priv,
                               uint8_t offset,
                               uint16_t value);
+
+static inline void spi_putreg8(struct stm32wl5_spidev_s *priv,
+                              uint8_t offset,
+                              uint8_t value);
+
 static inline uint16_t spi_readword(struct stm32wl5_spidev_s *priv);
 static inline void spi_writeword(struct stm32wl5_spidev_s *priv,
                                  uint16_t byte);
@@ -395,6 +404,27 @@ static struct stm32wl5_spidev_s g_spi2s2dev =
  ****************************************************************************/
 
 /****************************************************************************
+ * Name: spi_getreg8
+ *
+ * Description:
+ *   Get the contents of the SPI register at offset
+ *
+ * Input Parameters:
+ *   priv   - private SPI device structure
+ *   offset - offset to the register of interest
+ *
+ * Returned Value:
+ *   The contents of the 16-bit register
+ *
+ ****************************************************************************/
+
+static inline uint8_t spi_getreg8(struct stm32wl5_spidev_s *priv,
+                                  uint8_t offset)
+{
+  return getreg8(priv->spibase + offset);
+}
+
+/****************************************************************************
  * Name: spi_getreg
  *
  * Description:
@@ -439,6 +469,29 @@ static inline void spi_putreg(struct stm32wl5_spidev_s *priv,
 }
 
 /****************************************************************************
+ * Name: spi_putreg8
+ *
+ * Description:
+ *   Write an 8-bit value to the SPI register at offset
+ *
+ * Input Parameters:
+ *   priv   - private SPI device structure
+ *   offset - offset to the register of interest
+ *   value  - the 16-bit value to be written
+ *
+ * Returned Value:
+ *   The contents of the 16-bit register
+ *
+ ****************************************************************************/
+
+static inline void spi_putreg8(struct stm32wl5_spidev_s *priv,
+                               uint8_t offset,
+                               uint8_t value)
+{
+  putreg8(value, priv->spibase + offset);
+}
+
+/****************************************************************************
  * Name: spi_readword
  *
  * Description:
@@ -462,6 +515,25 @@ static inline uint16_t spi_readword(struct stm32wl5_spidev_s *priv)
 
   /* Then return the received byte */
   
+
+  /* "When the data frame size fits into one byte
+   * (less than or equal to 8 bits),
+   *  data packing is used automatically when any read or write 16-bit access
+   *  is performed on the SPIx_DR register. The double data frame pattern is
+   *  handled in parallel in this case. At first, the SPI operates using the
+   *  pattern stored in the LSB of the accessed word, then with the other
+   *  half stored in the MSB.... The receiver then has to access both data
+   *  frames by a single 16-bit read of SPIx_DR as a response to this single
+   *  RXNE event. The RxFIFO threshold setting and the following read access
+   *  must be always kept aligned at the receiver side, as data can be lost
+   *  if it is not in line."
+   */
+
+  if (priv->nbits < 9)
+    {
+      return (uint16_t)spi_getreg8(priv, STM32WL5_SPI_DR_OFFSET);
+    }
+  else
     {
       return spi_getreg(priv, STM32WL5_SPI_DR_OFFSET);
     }
@@ -471,11 +543,12 @@ static inline uint16_t spi_readword(struct stm32wl5_spidev_s *priv)
  * Name: spi_writeword
  *
  * Description:
- *   Write one byte to SPI
+ *   Write one word or byte to SPI. If the frame size is 8 bit or lower
+ *   a byte is written. In other case a word is written.
  *
  * Input Parameters:
  *   priv - Device-specific state data
- *   byte - Byte to send
+ *   word - word to send
  *
  * Returned Value:
  *   None
@@ -486,13 +559,17 @@ static inline void spi_writeword(struct stm32wl5_spidev_s *priv,
                                  uint16_t word)
 {
   /* Wait until the transmit buffer is empty */
-
   while ((spi_getreg(priv, STM32WL5_SPI_SR_OFFSET) & SPI_SR_TXE) == 0)
     {
     }
 
   /* Then send the word */
 
+  if (priv->nbits < 9)
+    {
+      spi_putreg8(priv, STM32WL5_SPI_DR_OFFSET, (uint8_t)word);
+    }
+  else
     {
       spi_putreg(priv, STM32WL5_SPI_DR_OFFSET, word);
     }
@@ -793,6 +870,8 @@ static void spi_modifycr1(struct stm32wl5_spidev_s *priv,
   cr1 &= ~clrbits;
   cr1 |= setbits;
   spi_putreg(priv, STM32WL5_SPI_CR1_OFFSET, cr1);
+
+  spiinfo("CR1 (0x%x) = 0x%04x\n", priv->spibase + STM32WL5_SPI_CR1_OFFSET,  cr1);
 }
 
 /****************************************************************************
@@ -819,6 +898,7 @@ static void spi_modifycr2(struct stm32wl5_spidev_s *priv, uint16_t setbits,
   cr2 &= ~clrbits;
   cr2 |= setbits;
   spi_putreg(priv, STM32WL5_SPI_CR2_OFFSET, cr2);
+  spiinfo("CR2 = 0x%04x\n", cr2);
 }
 
 /****************************************************************************
@@ -1081,21 +1161,17 @@ static void spi_setbits(struct spi_dev_s *dev, int nbits)
   uint16_t setbits;
   uint16_t clrbits;
 
-  spiinfo("nbits=%d\n", nbits);
 
   /* Has the number of bits changed? */
 
   if (nbits != priv->nbits)
     {
-      /* Yes... Set CR2 appropriately */
-
-      /* Set the number of bits (valid range 4-16) */
-
       if (nbits < 4 || nbits > 16)
         {
-          spierr("ERROR: nbits out of range: %d\n", nbits);
+          spierr("ERROR: nbits out of range: %d. Supported range [4..16].\n", nbits);
           return;
         }
+      spiinfo("nbits=%d (previous val %d)\n", nbits, priv->nbits);
 
       clrbits = SPI_CR2_DS_MASK;
       setbits = SPI_CR2_DS(nbits);
@@ -1112,7 +1188,6 @@ static void spi_setbits(struct spi_dev_s *dev, int nbits)
         {
           clrbits |= SPI_CR2_FRXTH; /* RX FIFO Threshold = 2 bytes */
         }
-
       spi_modifycr1(priv, 0, SPI_CR1_SPE);
       spi_modifycr2(priv, setbits, clrbits);
       spi_modifycr1(priv, SPI_CR1_SPE, 0);
@@ -1122,9 +1197,13 @@ static void spi_setbits(struct spi_dev_s *dev, int nbits)
 
       priv->nbits = nbits;
     }
+  else
+    {
+      spiinfo("nbits=%d (CR2 has proper value, no need to update)\n", nbits);
+    }
 }
 
-/****************************************************************************
+/********************************** ******************************************
  * Name: spi_hwfeatures
  *
  * Description:
@@ -1614,7 +1693,7 @@ static void spi_bus_initialize(struct stm32wl5_spidev_s *priv)
    *   8-bit:                         CR2.DS=7
    *   MSB transmitted first:         CR1.LSBFIRST=0
    *   Replace NSS with SSI & SSI=1:  CR1.SSI=1 CR1.SSM=1
-   *                                     (prevents MODF error)
+   *                               (prevents MODF error, NSS pin is not used)
    *   Two lines full duplex:         CR1.BIDIMODE=0 CR1.BIDIOIE=(Don't care)
    *                                  and CR1.RXONLY=0
    */
