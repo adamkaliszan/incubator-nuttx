@@ -28,7 +28,6 @@
 #include "hardware/stm32wl5_spi.h"
 
 #include <nuttx/config.h>
-
 #include <nuttx/spi/spi.h>
 
 #include "chip.h"
@@ -83,8 +82,8 @@ struct spi_dev_s *stm32wl5_spibus_initialize(int bus);
  *   These are implementations of the select, status, and cmddata methods of
  *   the SPI interface defined by struct spi_ops_s (see
  *   include/nuttx/spi/spi.h). All other methods (including
- *   stm32wl5_spibus_initialize()) are provided by common STM32 logic.  To use
- *   this common SPI logic on your board:
+ *   stm32wl5_spibus_initialize()) are provided by common STM32 logic.
+ *   To use this common SPI logic on your board:
  *
  *   1. Provide logic in stm32wl5_boardinitialize() to configure SPI chip
  *      select pins.
@@ -98,8 +97,8 @@ struct spi_dev_s *stm32wl5_spibus_initialize(int bus);
  *      operations using GPIOs in the way your board is configured.
  *   4. Add a calls to stm32wl5_spibus_initialize() in your low level
  *      application initialization logic
- *   5. The handle returned by stm32wl5_spibus_initialize() may then be used to
- *      bind the SPI driver to higher level logic (e.g., calling
+ *   5. The handle returned by stm32wl5_spibus_initialize() may then be used
+ *      to bind the SPI driver to higher level logic (e.g., calling
  *      mmcsd_spislotinitialize(), for example, will bind the SPI driver to
  *      the SPI MMC/SD driver).
  *
@@ -107,18 +106,17 @@ struct spi_dev_s *stm32wl5_spibus_initialize(int bus);
 
 #ifdef CONFIG_STM32WL5_SPI1
 void stm32wl5_spi1select(struct spi_dev_s *dev, uint32_t devid,
-                      bool selected);
+                         bool selected);
 uint8_t stm32wl5_spi1status(struct spi_dev_s *dev, uint32_t devid);
 int stm32wl5_spi1cmddata(struct spi_dev_s *dev, uint32_t devid, bool cmd);
 #endif
 
 #ifdef CONFIG_STM32WL5_SPI2S2
 void stm32wl5_spi2s2select(struct spi_dev_s *dev, uint32_t devid,
-                      bool selected);
+                           bool selected);
 uint8_t stm32wl5_spi2s2status(struct spi_dev_s *dev, uint32_t devid);
 int stm32wl5_spi2s2cmddata(struct spi_dev_s *dev, uint32_t devid, bool cmd);
 #endif
-
 
 /****************************************************************************
  * Name: stm32wl5_spi1/2s2register
@@ -143,12 +141,12 @@ int stm32wl5_spi2s2cmddata(struct spi_dev_s *dev, uint32_t devid, bool cmd);
 #ifdef CONFIG_SPI_CALLBACK
 #ifdef CONFIG_STM32WL5_SPI1
 int stm32wl5_spi1register(struct spi_dev_s *dev, spi_mediachange_t callback,
-                       void *arg);
+                          void *arg);
 #endif
 
 #ifdef CONFIG_STM32WL5_SPI2S2
-int stm32wl5_spi2s2register(struct spi_dev_s *dev, spi_mediachange_t callback,
-                       void *arg);
+int stm32wl5_spi2s2register(struct spi_dev_s *dev,
+                            spi_mediachange_t callback, void *arg);
 #endif
 #endif
 

@@ -75,8 +75,8 @@ typedef void *DMA_HANDLE;
  *   handle - Refers to the DMA channel or stream
  *   status - A bit encoded value that provides the completion status.  See
  *            the DMASTATUS_* definitions above.
- *   arg    - A user-provided value that was provided when stm32wl5_dmastart()
- *            was called.
+ *   arg    - A user-provided value that was provided when
+ *            stm32wl5_dmastart() was called.
  */
 
 typedef void (*dma_callback_t)(DMA_HANDLE handle, uint8_t status, void *arg);
@@ -138,8 +138,8 @@ extern "C"
  *   channel cannot do DMA concurrently!  See the DMACHAN_* definitions in
  *   stm32wl5_dma.h.
  *
- *   If the DMA channel is not available, then stm32wl5_dmachannel() will wait
- *   until the holder of the channel relinquishes the channel by calling
+ *   If the DMA channel is not available, then stm32wl5_dmachannel() will
+ *   wait until the holder of the channel relinquishes the channel by calling
  *   stm32wl5_dmafree().  WARNING: If you have two devices sharing a DMA
  *   channel and the code never releases the channel, the stm32wl5_dmachannel
  *   call for the other will hang forever in this function!  Don't let your
@@ -223,8 +223,8 @@ void stm32wl5_dmastart(DMA_HANDLE handle, dma_callback_t callback, void *arg,
  *
  * Description:
  *   Cancel the DMA.  After stm32wl5_dmastop() is called, the DMA channel is
- *   reset and stm32wl5_dmasetup() must be called before stm32wl5_dmastart() can be
- *   called again
+ *   reset and stm32wl5_dmasetup() must be called before stm32wl5_dmastart()
+ *   can be called again
  *
  * Assumptions:
  *   - DMA handle allocated by stm32wl5_dmachannel()
@@ -296,8 +296,9 @@ void stm32wl5_dmasample(DMA_HANDLE handle, struct stm32wl5_dmaregs_s *regs);
  ****************************************************************************/
 
 #ifdef CONFIG_DEBUG_DMA_INFO
-void stm32wl5_dmadump(DMA_HANDLE handle, const struct stm32wl5_dmaregs_s *regs,
-                   const char *msg);
+void stm32wl5_dmadump(DMA_HANDLE handle,
+                      const struct stm32wl5_dmaregs_s *regs,
+                      const char *msg);
 #else
 #  define stm32wl5_dmadump(handle,regs,msg)
 #endif
@@ -322,7 +323,8 @@ void stm32wl5_dmadump(DMA_HANDLE handle, const struct stm32wl5_dmaregs_s *regs,
 #if defined(HAVE_IP_DMA_V1)
 void stm32wl5_dma_intack(unsigned int chndx, uint32_t isr);
 #elif defined(HAVE_IP_DMA_V2)
-void stm32wl5_dma_intack(unsigned int controller, uint8_t stream, uint32_t isr);
+void stm32wl5_dma_intack(unsigned int controller, uint8_t stream,
+                         uint32_t isr);
 #endif
 
 /****************************************************************************

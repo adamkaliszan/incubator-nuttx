@@ -19,23 +19,23 @@
  ****************************************************************************/
 
 /****************************************************************************
- * The external functions, stm32wl5_spi1/2select and stm32wl5_spi1/2status must
- * be provided by board-specific logic.  They are implementations of the
+ * The external functions, stm32wl5_spi1/2select and stm32wl5_spi1/2status
+ * must be provided by board-specific logic.  They are implementations of the
  * select and status methods of the SPI interface defined by struct spi_ops_s
  * (see include/nuttx/spi/spi.h).
- * All other methods (including stm32wl5_spibus_initialize())  are provided by
- * common STM32 logic.  To use this common SPI logic on your board:
+ * All other methods (including stm32wl5_spibus_initialize())  are provided
+ * by common STM32 logic.  To use this common SPI logic on your board:
  *
- *   1. Provide logic in stm32wl5_boardinitialize() to configure SPI chip select
- *      pins.
+ *   1. Provide logic in stm32wl5_boardinitialize() to configure SPI chip
+ *      select pins.
  *   2. Provide stm32wl5_spi1/2select() and stm32wl5_spi1/2() functions
  *      in your board-specific logic.  These functions will perform chip
  *      selection and status operations using GPIOs in the way your board is
  *      configured.
  *   3. Add a calls to stm32wl5_spibus_initialize() in your low level
  *      application initialization logic
- *   4. The handle returned by stm32wl5_spibus_initialize() may then be used to
- *      bind the SPI driver to higher level logic (e.g., calling
+ *   4. The handle returned by stm32wl5_spibus_initialize() may then be used
+ *      to bind the SPI driver to higher level logic (e.g., calling
  *      mmcsd_spislotinitialize(), for example, will bind the SPI driver to
  *      the SPI MMC/SD driver).
  *
@@ -194,18 +194,9 @@ struct stm32wl5_spidev_s
 
 static inline uint16_t spi_getreg(struct stm32wl5_spidev_s *priv,
                                   uint8_t offset);
-
-static inline uint8_t spi_getreg8(struct stm32wl5_spidev_s *priv,
-                                  uint8_t offset);
-
 static inline void spi_putreg(struct stm32wl5_spidev_s *priv,
                               uint8_t offset,
                               uint16_t value);
-
-static inline void spi_putreg8(struct stm32wl5_spidev_s *priv,
-                              uint8_t offset,
-                              uint8_t value);
-
 static inline uint16_t spi_readword(struct stm32wl5_spidev_s *priv);
 static inline void spi_writeword(struct stm32wl5_spidev_s *priv,
                                  uint16_t byte);
@@ -367,8 +358,10 @@ static const struct spi_ops_s g_sp2iops =
 };
 
 #if defined(SPI2S2_DMABUFSIZE_ADJUSTED)
-static uint8_t g_spi2s2_txbuf[SPI2S2_DMABUFSIZE_ADJUSTED] SPI2S2_DMABUFSIZE_ALGN;
-static uint8_t g_spi2s2_rxbuf[SPI2S2_DMABUFSIZE_ADJUSTED] SPI2S2_DMABUFSIZE_ALGN;
+static uint8_t g_spi2s2_txbuf[SPI2S2_DMABUFSIZE_ADJUSTED]
+  SPI2S2_DMABUFSIZE_ALGN;
+static uint8_t g_spi2s2_rxbuf[SPI2S2_DMABUFSIZE_ADJUSTED]
+  SPI2S2_DMABUFSIZE_ALGN;
 #endif
 
 static struct stm32wl5_spidev_s g_spi2s2dev =
@@ -514,26 +507,6 @@ static inline uint16_t spi_readword(struct stm32wl5_spidev_s *priv)
     }
 
   /* Then return the received byte */
-  
-
-  /* "When the data frame size fits into one byte
-   * (less than or equal to 8 bits),
-   *  data packing is used automatically when any read or write 16-bit access
-   *  is performed on the SPIx_DR register. The double data frame pattern is
-   *  handled in parallel in this case. At first, the SPI operates using the
-   *  pattern stored in the LSB of the accessed word, then with the other
-   *  half stored in the MSB.... The receiver then has to access both data
-   *  frames by a single 16-bit read of SPIx_DR as a response to this single
-   *  RXNE event. The RxFIFO threshold setting and the following read access
-   *  must be always kept aligned at the receiver side, as data can be lost
-   *  if it is not in line."
-   */
-
-  if (priv->nbits < 9)
-    {
-      return (uint16_t)spi_getreg8(priv, STM32WL5_SPI_DR_OFFSET);
-    }
-  else
     {
       return spi_getreg(priv, STM32WL5_SPI_DR_OFFSET);
     }
@@ -543,12 +516,11 @@ static inline uint16_t spi_readword(struct stm32wl5_spidev_s *priv)
  * Name: spi_writeword
  *
  * Description:
- *   Write one word or byte to SPI. If the frame size is 8 bit or lower
- *   a byte is written. In other case a word is written.
+ *   Write one byte to SPI
  *
  * Input Parameters:
  *   priv - Device-specific state data
- *   word - word to send
+ *   byte - Byte to send
  *
  * Returned Value:
  *   None
@@ -559,6 +531,7 @@ static inline void spi_writeword(struct stm32wl5_spidev_s *priv,
                                  uint16_t word)
 {
   /* Wait until the transmit buffer is empty */
+  
   while ((spi_getreg(priv, STM32WL5_SPI_SR_OFFSET) & SPI_SR_TXE) == 0)
     {
     }
@@ -1188,6 +1161,7 @@ static void spi_setbits(struct spi_dev_s *dev, int nbits)
         {
           clrbits |= SPI_CR2_FRXTH; /* RX FIFO Threshold = 2 bytes */
         }
+
       spi_modifycr1(priv, 0, SPI_CR1_SPE);
       spi_modifycr2(priv, setbits, clrbits);
       spi_modifycr1(priv, SPI_CR1_SPE, 0);
@@ -1203,7 +1177,7 @@ static void spi_setbits(struct spi_dev_s *dev, int nbits)
     }
 }
 
-/********************************** ******************************************
+/****************************************************************************
  * Name: spi_hwfeatures
  *
  * Description:
@@ -1738,8 +1712,8 @@ static void spi_bus_initialize(struct stm32wl5_spidev_s *priv)
       nxsem_set_protocol(&priv->rxsem, SEM_PRIO_NONE);
       nxsem_set_protocol(&priv->txsem, SEM_PRIO_NONE);
 
-      /* Get DMA channels.  NOTE: stm32wl5_dmachannel() will always assign the
-       * DMA channel.  If the channel is not available, then
+      /* Get DMA channels.  NOTE: stm32wl5_dmachannel() will always assign
+       * the DMA channel.  If the channel is not available, then
        * stm32wl5_dmachannel() will block and wait until the channel becomes
        * available.
        * WARNING: If you have another device sharing a DMA channel with
@@ -1802,6 +1776,7 @@ struct spi_dev_s *stm32wl5_spibus_initialize(int bus)
       if (!priv->initialized)
         {
           /* Configure SPI1 pins: SCK, MISO, and MOSI */
+
           stm32wl5_configgpio(GPIO_SPI1_SCK);
           stm32wl5_configgpio(GPIO_SPI1_MISO);
           stm32wl5_configgpio(GPIO_SPI1_MOSI);

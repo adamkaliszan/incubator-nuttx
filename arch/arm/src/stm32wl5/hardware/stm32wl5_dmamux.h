@@ -37,26 +37,26 @@
 /* Register Offsets *********************************************************/
 
 #define STM32WL5_DMAMUX_CXCR_OFFSET(x)    (0x0000 + (0x0004 * (x)))          /* DMAMUX1 request line multiplexer channel x configuration register */
-#define STM32WL5_DMAMUX_C0CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(0)        /* 0x000 */
-#define STM32WL5_DMAMUX_C1CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(1)        /* 0x004 */
-#define STM32WL5_DMAMUX_C2CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(2)        /* 0x008 */
-#define STM32WL5_DMAMUX_C3CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(3)        /* 0x00c */
-#define STM32WL5_DMAMUX_C4CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(4)        /* 0x010 */
-#define STM32WL5_DMAMUX_C5CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(5)        /* 0x014 */
-#define STM32WL5_DMAMUX_C6CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(6)        /* 0x018 */
-#define STM32WL5_DMAMUX_C7CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(7)        /* 0x01c */
-#define STM32WL5_DMAMUX_C8CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(8)        /* 0x020 */
-#define STM32WL5_DMAMUX_C9CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(9)        /* 0x024 */
-#define STM32WL5_DMAMUX_C10CR_OFFSET      STM32WL5_DMAMUX_CXCR_OFFSET(10)       /* 0x028 */
-#define STM32WL5_DMAMUX_C11CR_OFFSET      STM32WL5_DMAMUX_CXCR_OFFSET(11)       /* 0x02c */
-#define STM32WL5_DMAMUX_C12CR_OFFSET      STM32WL5_DMAMUX_CXCR_OFFSET(12)       /* 0x030 */
-#define STM32WL5_DMAMUX_C13CR_OFFSET      STM32WL5_DMAMUX_CXCR_OFFSET(13)       /* 0x034 */
-#define STM32WL5_DMAMUX_C14CR_OFFSET      STM32WL5_DMAMUX_CXCR_OFFSET(14)       /* 0x038 */
-#define STM32WL5_DMAMUX_C15CR_OFFSET      STM32WL5_DMAMUX_CXCR_OFFSET(15)       /* 0x03c */
-                                                                          /* 0x040-0x07C: Reserved */
+#define STM32WL5_DMAMUX_C0CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(0)     /* 0x000 */
+#define STM32WL5_DMAMUX_C1CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(1)     /* 0x004 */
+#define STM32WL5_DMAMUX_C2CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(2)     /* 0x008 */
+#define STM32WL5_DMAMUX_C3CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(3)     /* 0x00c */
+#define STM32WL5_DMAMUX_C4CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(4)     /* 0x010 */
+#define STM32WL5_DMAMUX_C5CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(5)     /* 0x014 */
+#define STM32WL5_DMAMUX_C6CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(6)     /* 0x018 */
+#define STM32WL5_DMAMUX_C7CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(7)     /* 0x01c */
+#define STM32WL5_DMAMUX_C8CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(8)     /* 0x020 */
+#define STM32WL5_DMAMUX_C9CR_OFFSET       STM32WL5_DMAMUX_CXCR_OFFSET(9)     /* 0x024 */
+#define STM32WL5_DMAMUX_C10CR_OFFSET      STM32WL5_DMAMUX_CXCR_OFFSET(10)    /* 0x028 */
+#define STM32WL5_DMAMUX_C11CR_OFFSET      STM32WL5_DMAMUX_CXCR_OFFSET(11)    /* 0x02c */
+#define STM32WL5_DMAMUX_C12CR_OFFSET      STM32WL5_DMAMUX_CXCR_OFFSET(12)    /* 0x030 */
+#define STM32WL5_DMAMUX_C13CR_OFFSET      STM32WL5_DMAMUX_CXCR_OFFSET(13)    /* 0x034 */
+#define STM32WL5_DMAMUX_C14CR_OFFSET      STM32WL5_DMAMUX_CXCR_OFFSET(14)    /* 0x038 */
+#define STM32WL5_DMAMUX_C15CR_OFFSET      STM32WL5_DMAMUX_CXCR_OFFSET(15)    /* 0x03c */
+                                                                             /* 0x040-0x07C: Reserved */
 #define STM32WL5_DMAMUX_CSR_OFFSET        0x0080                             /* DMAMUX1 request line multiplexer interrupt channel status register */
 #define STM32WL5_DMAMUX_CFR_OFFSET        0x0084                             /* DMAMUX1 request line multiplexer interrupt clear flag register */
-                                                                          /* 0x088-0x0FC: Reserved */
+                                                                             /* 0x088-0x0FC: Reserved */
 #define STM32WL5_DMAMUX_RGXCR_OFFSET(x)   (0x0100 + (0x004 * (x)))           /* DMAMUX1 request generator channel x configuration register */
 #define STM32WL5_DMAMUX_RG0CR_OFFSET      STM32WL5_DMAMUX_RGXCR_OFFSET(0)
 #define STM32WL5_DMAMUX_RG1CR_OFFSET      STM32WL5_DMAMUX_RGXCR_OFFSET(1)
@@ -64,7 +64,7 @@
 #define STM32WL5_DMAMUX_RG3CR_OFFSET      STM32WL5_DMAMUX_RGXCR_OFFSET(3)
 #define STM32WL5_DMAMUX_RGSR_OFFSET       0x0140                             /* DMAMUX1 request generator interrupt status register */
 #define STM32WL5_DMAMUX_RGCFR_OFFSET      0x0144                             /* DMAMUX1 request generator interrupt clear flag register */
-                                                                          /* 0x148-0x3FC: Reserved */
+                                                                             /* 0x148-0x3FC: Reserved */
 
 /* Register Addresses *******************************************************/
 
